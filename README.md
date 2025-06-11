@@ -13,7 +13,6 @@ Ce projet vise à **prédire le risque d'incendie (feu)** dans le temps pour cha
 - Période : 2006 à 2024
 - Variables :
   - Date et lieu du feu
-  - Surface brûlée
   - Localisation (commune, latitude, longitude)
 
 ### 🔸 Données météorologiques
