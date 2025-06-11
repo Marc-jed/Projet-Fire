@@ -78,7 +78,7 @@ Ce projet vise à **prédire le risque d'incendie (feu)** dans le temps pour cha
 
 ## 👤 Auteurs
 
-- Projet réalisé dans le cadre d’une reconversion professionnelle en data science
+- Faycal Belambri, Joel Termondjian, Marc Barthes
 - Développé avec Python, Scikit-learn, XGBoost, Lifelines, Plotly
 
 ---
