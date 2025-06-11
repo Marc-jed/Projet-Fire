@@ -56,9 +56,6 @@ Ce projet vise à **prédire le risque d'incendie (feu)** dans le temps pour cha
 - Affichage du risque de feu par zone sur une carte (Plotly ScatterMapbox)
 - Possibilité de sélectionner l’horizon temporel (7j, 30j, etc.)
 
-### 📈 Courbes de probabilité
-- Courbe d’évolution du risque dans le temps pour une **ville sélectionnée**.
-
 ---
 
 ## 📊 Évaluation
