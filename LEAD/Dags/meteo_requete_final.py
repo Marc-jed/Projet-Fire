@@ -183,12 +183,13 @@ def upload_compile_csv_to_s3(ti, **kwargs):
     s3.load_file(filename=path, key=f"{compile_folder}/{filename}", bucket_name=bucket, replace=True)
 
 
-def cleaner_data(ti,**kwargs)
+def cleaner_data(ti,**kwargs):
+    path = ti.xcom_pull(task_ids='compile_meteo_data', key='meteo-compile_csv_path')
     # Chemin vers les fichiers CSV
     s3 = S3Hook(aws_conn_id="aws_default")
     bucket_name = Variable.get("S3BucketName")
     compile_name = Variable.get("S3Compile")
-    df = pd.read_csv(f"{compile_folder}/{filename}")
+    df = pd.read_csv(path)
     df['DATE'] = pd.to_datetime(df['DATE'], format='%Y%m%d')
     # Traitements de colonnes innutiles
     drop_cols = list(set([
@@ -214,9 +215,10 @@ def cleaner_data(ti,**kwargs)
     df2['Code INSEE'] = df2['Code INSEE'].astype(str)
     # merge des 2 fichiers
     df_corse = pd.merge(df, df2, on='Code INSEE', how='left')
-    df=df_corse
+    ti.xcom_push(key="cleaner_data_csv_path", value=df_corse)
 
 def features_data(ti, **kwargs)
+    df = ti.xcom_pull(key="cleaner_data_csv_path", value=df_corse)
     # fonction de moyenne lissante avec np.convolve
     def moving_average(x, w):
         # Remplir le tableau d'entrée avec 'w//2' éléments de chaque côté en utilisant les valeurs de bord
@@ -235,6 +237,59 @@ def features_data(ti, **kwargs)
     # moyenne température par mois et année
     df['moyenne temperature année'] = moving_average(df['TN'], 365).round(2)
     df['moyenne temperature mois'] = moving_average(df['TN'], 31).round(2)
+   
+    ti.xcom_push(key="cleaner_data_csv_path", value=df)
+
+def fusion_data(ti, **kwargs)
+    df=ti.xcom_pull(key="cleaner_data_csv_path", value=df)
+    
+    # appelle du dataset insee
+    df_insee = pd.read_csv('s3://fireprojectlead/dataset/correspondance-code-insee-code-postal.csv', sep=';',encoding='utf-8')
+    # suppression des colonnes inutiles sur le dataset insee
+    df_insee = df.drop(columns=['Département','Région','Statut','Altitude Moyenne','Superficie','Population','geo_shape','ID Geofla','Code Commune','Code Canton','Code Arrondissement','Code Département','Code Région'], axis=1)
+    # appelle du dataset feu
+    feux = pd.read_csv('s3://fireprojectlead/dataset/historique_incendies_avec_coordonnees.csv', sep=';', encoding='utf-8')
+    # merge du dataset feu et insee
+    df_feux = pd.merge(feux, df_insee, on=['Code INSEE'], how='left')
+    # modification des colonnes date
+    df.rename({'DATE': 'Date'}, axis=1, inplace=True)
+    df['Date'] = pd.to_datetime(df_meteo['Date']).dt.normalize()
+    df_feux['Date'] = pd.to_datetime(df_feux['Date']).dt.normalize()
+    # dans le fichier df_feux on filtre les departement corse on supprimme des colonnes et on renomme une colonne
+    feux_corse = df_feux[df_feux['Département'].isin(['2A', '2B', 2])]
+    feux_corse = feux_corse.drop(feux_corse.columns[[12, 13, 14, 21]], axis=1)
+    feux_corse = feux_corse.rename(columns={'Nom de la commune': 'ville'})
+    # fusion du météo et feu
+    df_fusion= pd.merge(df, feux_corse, on=['Date', 'ville'], how='outer')
+    # traitement des doublons
+    df_clean = df.groupby(['ville', 'Date'], as_index=False).agg(lambda x: x.dropna().iloc[0] if not x.dropna().empty else None)
+    # on met 0 dans la colonne feux si pas de données 
+    df_clean['Feux'] = df_clean['Feux'].fillna(0).astype(int)
+    df=df_clean
+
+    # Mise en place de la colonne décompte avant le feu suivant
+
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.sort_values(['ville', 'Date'])
+
+    def days_until_next_fire(group):
+        # Dates où il y a un feu, sinon NaT
+        feu_dates = group['Date'].where(group['Feux'] == 1)
+
+        # On inverse la série pour faire un forward fill à rebours (pour chaque date, la prochaine date feu)
+        next_feu_dates = feu_dates[::-1].ffill()[::-1]
+
+        # Calcul du delta en jours entre la prochaine date feu et la date actuelle
+        delta_days = (next_feu_dates - group['Date']).dt.days
+
+        # Pour les lignes où Feux==1, mettre 0 (par sécurité)
+        delta_days[group['Feux'] == 1] = 0
+
+        return delta_days
+
+    df['décompte'] = df.groupby('ville').apply(days_until_next_fire).reset_index(level=0, drop=True)
+
+# print(df[['ville', 'Date', 'Feux', 'décompte']].head(10))
 
 
 with DAG(
@@ -261,5 +316,9 @@ with DAG(
         task_id="cleaner_data"
         python_callable=cleaner_data
     )
+    features_data=PythonOperator(
+        task_id="features_data"
+        python_callable=features_data
+    )
 
-fetch_weather >> compile_meteo >> upload_compile_csv >> cleaner_data
+fetch_weather >> compile_meteo >> upload_compile_csv >> cleaner_data >> features_data
