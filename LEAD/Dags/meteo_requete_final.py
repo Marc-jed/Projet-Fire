@@ -182,7 +182,61 @@ def upload_compile_csv_to_s3(ti, **kwargs):
     filename = os.path.basename(path)
     s3.load_file(filename=path, key=f"{compile_folder}/{filename}", bucket_name=bucket, replace=True)
 
- 
+
+def cleaner_data(ti,**kwargs)
+    # Chemin vers les fichiers CSV
+    s3 = S3Hook(aws_conn_id="aws_default")
+    bucket_name = Variable.get("S3BucketName")
+    compile_name = Variable.get("S3Compile")
+    df = pd.read_csv(f"{compile_folder}/{filename}")
+    df['DATE'] = pd.to_datetime(df['DATE'], format='%Y%m%d')
+    # Traitements de colonnes innutiles
+    drop_cols = list(set([
+        'PMERM','PMERMIN','QPMERMIN','FF2M','QFF2M','FXI2','QFXI2','DXI2','QDXI2','HXI2','QHXI2','DXI3S','QDXI3S','DHUMEC','QDHUMEC','INST','QINST','GLOT','QGLOT','DIFT','QDIFT','DIRT','QDIRT','SIGMA','QSIGMA','INFRART','QINFRART','UV_INDICEX','QUV_INDICEX','NB300','QNB300','BA300','QBA300','NEIG','QNEIG','BROU','QBROU','GRESIL','GRELE','QGRELE','ROSEE','QROSEE','VERGLAS','QVERGLAS','SOLNEIGE','QSOLNEIGE','GELEE','QGELEE','FUMEE','QFUMEE','UV','QUV','TMERMAX','QTMERMAX','TMERMIN','QTMERMIN','HNEIGEF','QHNEIGEF','NEIGETOTX','QNEIGETOTX','NEIGETOT06','QNEIGETOT06','QRR','QDRR','QTN','QHTN','QTX','QHTX','QTM','QTMNX','QTNSOL','QTN50','DG','QDG','QTAMPLI','QTNTXM','QPMERM','QFFM','QFXI','QDXI','QHXI','QFXY','QDXY','QHXY','QFXI3S','QHXI3S','QUN','QHUN','QUX','QHUX','QDHUMI40','QDHUMI80','QTSVM','QUM','QORAG','QGRESIL','QBRUME','ECLAIR','QECLAIR','QETPMON','QETPGRILLE'
+    ]))
+    df = df.drop(columns=drop_cols, axis=1)
+
+    # convertion des colonnes object en float64
+    for column in df.columns:
+        if df[column].dtype == 'object':
+            # Replace comma with dot for float conversion
+            df[column] = df[column].str.replace(',', '.', regex=False)
+            df[column] = df[column].astype('Float64')
+    # Convertir la colonne post en code postal à 5 chiffres
+    A = 5
+    df['Code INSEE'] = df['POSTE'].astype(str).str[:A].astype(str)
+
+    # appelle du fichier code insee
+    df2 = pd.read_json('scrapping\corse_insee.json', orient='records')
+    df2.rename(columns={'code_insee': 'Code INSEE'}, inplace=True)
+    df2.rename(columns={'code_postale': 'Code Postal'}, inplace=True)
+    df2.rename(columns={'nom_de_la_commune': 'ville'}, inplace=True)
+    df2['Code INSEE'] = df2['Code INSEE'].astype(str)
+    # merge des 2 fichiers
+    df_corse = pd.merge(df, df2, on='Code INSEE', how='left')
+    df=df_corse
+
+def features_data(ti, **kwargs)
+    # fonction de moyenne lissante avec np.convolve
+    def moving_average(x, w):
+        # Remplir le tableau d'entrée avec 'w//2' éléments de chaque côté en utilisant les valeurs de bord
+        padded_x = np.pad(x, (w//2, w//2), mode='edge')
+        # Effectuer la convolution avec le mode 'valid'
+        return np.convolve(padded_x, np.ones(w), 'valid') / w
+    # ajout de colonne sur les précispitation moyenne par an et mois
+    df['moyenne precipitations année'] = moving_average(df['RR'], 365).round(2)
+    df['moyenne precipitations mois'] = moving_average(df['RR'], 31).round(2)
+    # moyenne ecapotranspiration par mois et année
+    df['moyenne evapotranspiration année'] = moving_average(df['ETPMON'], 365).round(2)
+    df['moyenne evapotranspiration mois'] = moving_average(df['ETPMON'], 31).round(2)
+    # moyenne vitesse de vent par mois et année
+    df['moyenne vitesse vent année'] = moving_average(df['FFM'], 365).round(2)
+    df['moyenne vitesse vent mois'] = moving_average(df['FFM'], 31).round(2)
+    # moyenne température par mois et année
+    df['moyenne temperature année'] = moving_average(df['TN'], 365).round(2)
+    df['moyenne temperature mois'] = moving_average(df['TN'], 31).round(2)
+
+
 with DAG(
     dag_id="meteo_requete_final",
     default_args=default_args,
@@ -195,11 +249,6 @@ with DAG(
         task_id="get_meteo",
         python_callable=get_meteo,
     )
-
-    # upload_csv = PythonOperator(
-    #     task_id="upload_csv_to_s3",
-    #     python_callable=upload_csv_to_s3
-    # )
     compile_meteo = PythonOperator(
         task_id="compile_meteo_data",
         python_callable=compile_meteo_data
@@ -208,4 +257,9 @@ with DAG(
         task_id="upload_compile_csv_to_s3",
         python_callable=upload_compile_csv_to_s3
     )
-fetch_weather >> compile_meteo >> upload_compile_csv
+    cleaner_data=PythonOperator(
+        task_id="cleaner_data"
+        python_callable=cleaner_data
+    )
+
+fetch_weather >> compile_meteo >> upload_compile_csv >> cleaner_data
