@@ -286,11 +286,197 @@ def fusion_data(ti, **kwargs)
         delta_days[group['Feux'] == 1] = 0
 
         return delta_days
-
+    # on créé une colonne décompte jusqu'au prochain feu
     df['décompte'] = df.groupby('ville').apply(days_until_next_fire).reset_index(level=0, drop=True)
+    # on merge avec le fichiers coordonnées lat/long corse csv 
+    gps=pd.read_csv('s3://fireprojectlead/dataset/coordonnees_corses.csv')
+    df_merge = df.merge(gps,on="ville", how="left")
 
-# print(df[['ville', 'Date', 'Feux', 'décompte']].head(10))
+    # Création de la colonne évènement pour indiquer si un feu a eu lieu
+    df_merge['évènement'] = df_merge['Feux'] == 1
+    # on encore des probleme avec la lat et long donc on merge avec un autre fichier
+    news_gps = pd.read_csv('s3://fireprojectlead/dataset/corse_gps.csv', sep=';', encoding='utf-8')
+    # on renomme la colonne qui va servir au merge
+    news_gps = news_gps.rename(columns={'properties.name':'ville'})
+    # on supprime les colonnes inutiles
+    news_gps = news_gps.drop(news_gps.columns[[0,1,3]], axis=1)
+    # Fusionner les deux DataFrames sur la colonne 'ville'
+    df_combined = df_merge.merge(news_gps, on='ville', how='left', suffixes=('', '_y'))
+    # Remplacer les valeurs manquantes dans df1 par celles de df2
+    df_combined['latitude'] = df_combined['latitude_y'].combine_first(df_combined['latitude'])
+    df_combined['longitude'] = df_combined['longitude_y'].combine_first(df_combined['longitude'])
+    # Supprimer les colonnes supplémentaires créées par la fusion
+    df_combined = df_combined.drop(columns=['latitude_y', 'longitude_y'])
+    df_merge = df_combined
+    # il restait 256 lignes sans localisation gps que l'on supprime
+    df_merge = df_merge.dropna(subset=['latitude', 'longitude'])
+    # S'assurer que la date est bien au bon format
+    df_merge["Date"] = pd.to_datetime(df_merge["Date"])
 
+    # Trier le DataFrame par ville et date
+    df_merge = df_merge.sort_values(by=["ville", "Date"]).reset_index(drop=True)
+
+    # Nouvelle colonne initialisée à NaN
+    df_merge["compteur jours vers prochain feu"] = pd.NA
+
+    # Traitement par ville
+    for ville, groupe in df_merge.groupby("ville"):
+        groupe = groupe.sort_values("Date")
+        indices_feux = groupe[groupe["évènement"] == True].index.tolist()
+        
+        for i in range(len(indices_feux) - 1):
+            debut = indices_feux[i]
+            fin = indices_feux[i + 1]
+            
+            # Remplir les jours entre les deux feux avec un compteur croissant
+            for j, idx in enumerate(range(debut, fin)):
+                df_merge.loc[idx, "compteur jours vers prochain feu"] = j
+    
+    # # nombre de jour sans feu + log et carré
+    df_merge['compteur feu log'] = df_merge['compteur jours vers prochain feu'].apply(lambda x: np.log1p(x) if pd.notnull(x) else np.nan)
+    df_merge['compteur feu carré'] = df_merge['compteur jours vers prochain feu'].apply(lambda x: x**2 if pd.notnull(x) else np.nan)
+    # # Calcule le nombre de feux par an et mois pour chaque ville
+    df_merge['Année'] = df_merge['Date'].dt.year
+    df_merge['Mois'] = df_merge['Date'].dt.month
+    df_merge['Nombre de feu par an'] = df_merge.groupby(['ville', 'Année'])['Feux'].transform('sum')
+    df_merge['Nombre de feu par mois'] = df_merge.groupby(['ville', 'Année', 'Mois'])['Feux'].transform('sum')
+
+        # Trier par ville et par date
+    df_merge = df_merge.sort_values(['ville', 'Date'])
+
+    # Fonction pour compter les jours consécutifs sans pluie
+    def compter_jours_sans_pluie(groupe):
+        compteur = 0
+        jours_sans_pluie = []
+        for rr in groupe['RR']:
+            if pd.isna(rr):
+                jours_sans_pluie.append(np.nan)
+            elif rr == 0:
+                compteur += 1
+                jours_sans_pluie.append(compteur)
+            else:
+                compteur = 0
+                jours_sans_pluie.append(compteur)
+        return jours_sans_pluie
+
+    # Appliquer par ville
+    df_merge['jours_sans_pluie'] = df_merge.groupby('ville').apply(compter_jours_sans_pluie).explode().astype(float).values
+    
+    
+    # Fonction pour compter les jours consécutifs avec TX > 30
+    def compter_jours_chauds(groupe):
+        compteur = 0
+        jours_chauds = []
+        for tx in groupe['TX']:
+            if pd.isna(tx):
+                jours_chauds.append(np.nan)
+            elif tx > 30:
+                compteur += 1
+                jours_chauds.append(compteur)
+            else:
+                compteur = 0
+                jours_chauds.append(compteur)
+        return jours_chauds
+
+    # Appliquer la fonction par ville
+    df_merge= df_merge.sort_values(['ville', 'Date'])  # Assurer l'ordre temporel
+    df_merge['jours_TX_sup_30'] = df_merge.groupby('ville').apply(compter_jours_chauds).explode().astype(float).values
+
+    df_merge["ETPGRILLE_7j"] = df_merge.groupby("ville")["ETPGRILLE"].transform(lambda x: x.rolling(7, min_periods=1).mean())
+
+
+
+    # Chargement du fichier CSV
+    df_merge = pd.read_csv("dataset_modele_decompte2.csv", sep=';', low_memory=False)
+
+    # Colonnes météo à compléter
+    colonnes_meteo = [
+        'RR', 'DRR', 'TN', 'HTN', 'TX', 'HTX', 'TM', 'TMNX', 'TNSOL', 'TN50',
+        'TAMPLI', 'TNTXM', 'FFM', 'FXI', 'DXI', 'HXI', 'FXY', 'DXY', 'HXY',
+        'FXI3S', 'HXI3S', 'UN', 'HUN', 'UX', 'HUX', 'DHUMI40', 'DHUMI80',
+        'TSVM', 'UM', 'ORAG', 'BRUME', 'ETPMON', 'ETPGRILLE'
+    ]
+
+    # Séparer les lignes avec et sans données météo
+    df_manquantes = df_merge[df_merge[colonnes_meteo].isnull().any(axis=1)].copy()
+    df_completes = df_merge.dropna(subset=colonnes_meteo).copy()
+
+    # Fonction pour trouver la ville la plus proche avec données météo
+    def trouver_ville_proche(row, ref_df):
+        if pd.isna(row['latitude']) or pd.isna(row['longitude']):
+            return None
+
+        ville_ref = ref_df[['ville', 'latitude', 'longitude']].dropna().drop_duplicates()
+        coord = (row['latitude'], row['longitude'])
+
+        ville_ref['distance'] = ville_ref.apply(
+            lambda x: geodesic(coord, (x['latitude'], x['longitude'])).km, axis=1
+        )
+
+        plus_proche = ville_ref.loc[ville_ref['distance'].idxmin()]
+        return plus_proche['ville']
+
+    # Associer une ville de référence à chaque ligne manquante
+    df_manquantes['ville_proche'] = df_manquantes.apply(
+        lambda x: trouver_ville_proche(x, df_completes), axis=1
+    )
+
+    # Copier les valeurs météo depuis la ville proche
+    # Fonction robuste de récupération des données météo
+    def recuperer_donnees_meteo(row, df_source, max_villes=5):
+        if pd.isna(row['latitude']) or pd.isna(row['longitude']):
+            return pd.Series([None] * len(colonnes_meteo), index=colonnes_meteo)
+
+        # Calcul des distances vers toutes les villes avec données météo
+        coord = (row['latitude'], row['longitude'])
+        villes_ref = df_source[['ville', 'latitude', 'longitude']].dropna().drop_duplicates().copy()
+
+        villes_ref['distance'] = villes_ref.apply(
+            lambda x: geodesic(coord, (x['latitude'], x['longitude'])).km, axis=1
+        )
+
+        # Trier par proximité
+        villes_proches = villes_ref.sort_values('distance').head(max_villes)
+
+        # Chercher une ville avec données pour cette date
+        for _, ville_row in villes_proches.iterrows():
+            ville = ville_row['ville']
+            meme_jour = df_source[
+                (df_source['ville'] == ville) & (df_source['Date'] == row['Date'])
+            ]
+            if not meme_jour.empty:
+                return meme_jour[colonnes_meteo].iloc[0]
+
+        # Si aucune ville ne convient
+        return pd.Series([None] * len(colonnes_meteo), index=colonnes_meteo)
+
+
+
+    # Appliquer proprement les remplacements
+    for idx, row in df_manquantes.iterrows():
+        valeurs_remplacement = recuperer_donnees_meteo(row, df_completes)
+        for col in colonnes_meteo:
+            if pd.isna(df_manquantes.at[idx, col]) and pd.notna(valeurs_remplacement[col]):
+                df_manquantes.at[idx, col] = valeurs_remplacement[col]
+
+
+    # Fusion des deux ensembles pour un dataframe complet
+    df_final = pd.concat([
+        df_completes,
+        df_manquantes
+    ]).sort_index()
+
+    # Export possible si besoin
+    path=df_final.to_csv("dataset_complet_meteo.csv", sep=';', index=False)
+    ti.xcom_push(key="dataset_complet_csv_path", value=path)
+
+def upload_fusion_csv_to_s3(ti, **kwargs):
+    path = ti.xcom_pull(task_ids='fusion_data', key='dataset_complet_csv_path')
+    bucket = Variable.get("S3BucketName")
+    compile_folder = Variable.get("S3Compile")
+    s3 = S3Hook(aws_conn_id="aws_default")
+    filename = os.path.basename(path)
+    s3.load_file(filename=path, key=f"{compile_folder}/{filename}", bucket_name=bucket, replace=True)
 
 with DAG(
     dag_id="meteo_requete_final",
@@ -320,5 +506,13 @@ with DAG(
         task_id="features_data"
         python_callable=features_data
     )
+    fusion_data=PythonOperator(
+        task_id="fusion_data"
+        python_callable=fusion_data
+    )
+    upload_fusion_csv_to_s3=PythonOperator(
+        task_id="upload_fusion_csv_to_s3"
+        python_callable=upload_fusion_csv_to_s3
+    )
 
-fetch_weather >> compile_meteo >> upload_compile_csv >> cleaner_data >> features_data
+fetch_weather >> compile_meteo >> upload_compile_csv >> cleaner_data >> features_data >> fusion_data >> upload_fusion_csv_to_s3
