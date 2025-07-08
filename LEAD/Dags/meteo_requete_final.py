@@ -121,26 +121,27 @@ def get_meteo(ti, **kwargs):
     # output_file = dep + '.csv'
     # all_data.to_csv(output_file, index=False)
 
-def upload_csv_to_s3(ti, **kwargs):
-    paths = ti.xcom_pull(task_ids='get_meteo', key='meteo_paths')
-    bucket = Variable.get("S3BucketName")
-    folder = Variable.get("S3FolderName")
-    s3 = S3Hook(aws_conn_id="aws_default")
-    for path in paths:
-        filename = os.path.basename(path)
-        s3.load_file(filename=path, key=f"{folder}/{filename}", bucket_name=bucket, replace=True)
+# def upload_csv_to_s3(ti, **kwargs):
+#     paths = ti.xcom_pull(task_ids='get_meteo', key='meteo_paths')
+#     bucket = Variable.get("S3BucketName")
+#     folder = Variable.get("S3FolderName")
+#     s3 = S3Hook(aws_conn_id="aws_default")
+#     for path in paths:
+#         filename = os.path.basename(path)
+#         s3.load_file(filename=path, key=f"{folder}/{filename}", bucket_name=bucket, replace=True)
 
 
 def compile_meteo_data(ti, **kwargs):
-    # Chemin vers les fichiers CSV
-    s3 = S3Hook(aws_conn_id="aws_default")
-    bucket_name = Variable.get("S3BucketName")
-    folder_name = Variable.get("S3FolderName")
-    # Lire les fichiers CSV depuis S3
-    all_files = s3.list_keys(bucket_name=bucket_name, prefix=folder_name)
-    all_files = [f"s3://{bucket_name}/{file}" for file in all_files if file.endswith('.csv')]
+    # # Chemin vers les fichiers CSV
+    # s3 = S3Hook(aws_conn_id="aws_default")
+    # bucket_name = Variable.get("S3BucketName")
+    # folder_name = Variable.get("S3FolderName")
+    # # Lire les fichiers CSV depuis S3
+    # all_files = s3.list_keys(bucket_name=bucket_name, prefix=folder_name)
+    # all_files = [f"s3://{bucket_name}/{file}" for file in all_files if file.endswith('.csv')]
      
     # all_files = glob.glob(path + "/*.csv")
+    all_files = ti.xcom_pull(task_ids='get_meteo', key='meteo_paths')
 
     # Liste pour stocker les DataFrames
     list_of_dfs = []
@@ -195,10 +196,10 @@ with DAG(
         python_callable=get_meteo,
     )
 
-    upload_csv = PythonOperator(
-        task_id="upload_csv_to_s3",
-        python_callable=upload_csv_to_s3
-    )
+    # upload_csv = PythonOperator(
+    #     task_id="upload_csv_to_s3",
+    #     python_callable=upload_csv_to_s3
+    # )
     compile_meteo = PythonOperator(
         task_id="compile_meteo_data",
         python_callable=compile_meteo_data
@@ -207,4 +208,4 @@ with DAG(
         task_id="upload_compile_csv_to_s3",
         python_callable=upload_compile_csv_to_s3
     )
-fetch_weather >> upload_csv >> compile_meteo >> upload_compile_csv
+fetch_weather >> compile_meteo >> upload_compile_csv
