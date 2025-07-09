@@ -44,4 +44,4 @@ RUN pip install -r /tmp/requirements.txt
 COPY . /app
 
 # Définir le point d'entrée pour exécuter les tests avec pytest
-CMD ["python", "-m", "pytest", "tests/"]
+CMD ["python", "-m", "pytest", "LEAD/tests/"]
