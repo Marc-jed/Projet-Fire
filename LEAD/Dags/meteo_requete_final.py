@@ -502,19 +502,19 @@ with DAG(
         python_callable=upload_compile_csv_to_s3
     )
     cleaner_data=PythonOperator(
-        task_id="cleaner_data"
+        task_id="cleaner_data",
         python_callable=cleaner_data
     )
     features_data=PythonOperator(
-        task_id="features_data"
+        task_id="features_data",
         python_callable=features_data
     )
     fusion_data=PythonOperator(
-        task_id="fusion_data"
+        task_id="fusion_data",
         python_callable=fusion_data
     )
     upload_fusion_csv_to_s3=PythonOperator(
-        task_id="upload_fusion_csv_to_s3"
+        task_id="upload_fusion_csv_to_s3",
         python_callable=upload_fusion_csv_to_s3
     )
 
