@@ -54,17 +54,12 @@ pipeline {
         stage('Prepare Context') {
             steps {
                 sh '''
+                    rm -rf temp_build  # Supprime le répertoire s'il existe déjà
                     mkdir temp_build
                     cp -r tests temp_build/
                     cp -r jenkins temp_build/
+                    ls -la temp_build  # Affiche le contenu de temp_build pour vérifier
                 '''
-                sh 'ls -la temp_build' // Debug step to check the contents of temp_build
-            }
-        }
-
-        stage('Debug: After Prepare Context') {
-            steps {
-                sh 'ls -la temp_build/tests'
             }
         }
 
@@ -76,7 +71,7 @@ pipeline {
 
         stage('Debug: Before Running Tests') {
             steps {
-                sh 'docker images | grep ${TEST_IMAGE}' // Check if the Docker image was built
+                sh 'docker images | grep ${TEST_IMAGE}'  # Vérifie que l'image Docker a été construite
             }
         }
 
