@@ -36,7 +36,6 @@
 //   }
 // }
 
-
 pipeline {
     agent any
     environment {
@@ -62,8 +61,8 @@ pipeline {
                 sh '''
                     rm -rf temp_build
                     mkdir temp_build
-                    cp -r ../tests temp_build/
-                    cp -r ../jenkins temp_build/
+                    cp -r LEAD/tests temp_build/
+                    cp -r LEAD/jenkins temp_build/
                     ls -la temp_build/
                 '''
             }
