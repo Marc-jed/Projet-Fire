@@ -51,27 +51,40 @@ pipeline {
             }
         }
 
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Debug: After Checkout') {
+            steps {
+                sh 'pwd'
+                sh 'ls -la'
+            }
+        }
+
         stage('Prepare Context') {
             steps {
                 sh '''
-                    rm -rf temp_build  # Supprime le répertoire s'il existe déjà
+                    rm -rf temp_build
                     mkdir temp_build
-                    cp -r tests temp_build/
-                    cp -r jenkins temp_build/
-                    ls -la temp_build  # Affiche le contenu de temp_build pour vérifier
+                    cp -r LEAD/tests temp_build/
+                    cp -r LEAD/jenkins temp_build/
+                    ls -la temp_build
                 '''
             }
         }
 
         stage('Build Test Container') {
             steps {
-                sh 'docker build -t ${TEST_IMAGE} -f temp_build/tests/Dockerfile temp_build/tests/'
+                sh 'docker build -t ${TEST_IMAGE} -f temp_build/jenkins/Dockerfile temp_build/'
             }
         }
 
         stage('Debug: Before Running Tests') {
             steps {
-                sh 'docker images | grep ${TEST_IMAGE}  # Vérifie que l\'image Docker a été construite'
+                sh 'docker images | grep ${TEST_IMAGE}'
             }
         }
 
@@ -92,4 +105,5 @@ pipeline {
         }
     }
 }
+
 
