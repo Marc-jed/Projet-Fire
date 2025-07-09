@@ -211,7 +211,7 @@ def cleaner_data(ti,**kwargs):
     df['Code INSEE'] = df['POSTE'].astype(str).str[:A].astype(str)
 
     # appelle du fichier code insee
-    df2 = pd.read_json('https://fireprojectlead.s3.us-east-1.amazonaws.com/dataset/corse_insee.json', orient='records')
+    df2 = pd.read_json('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/corse_insee.json', orient='records')
     df2.rename(columns={'code_insee': 'Code INSEE'}, inplace=True)
     df2.rename(columns={'code_postale': 'Code Postal'}, inplace=True)
     df2.rename(columns={'nom_de_la_commune': 'ville'}, inplace=True)
@@ -247,11 +247,11 @@ def fusion_data(ti, **kwargs):
     df=ti.xcom_pull(key="cleaner_data_csv_path", value=df)
     
     # appelle du dataset insee
-    df_insee = pd.read_csv('s3://fireprojectlead/dataset/correspondance-code-insee-code-postal.csv', sep=';',encoding='utf-8')
+    df_insee = pd.read_csv('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/correspondance-code-insee-code-postal.csv', sep=';',encoding='utf-8')
     # suppression des colonnes inutiles sur le dataset insee
     df_insee = df.drop(columns=['Département','Région','Statut','Altitude Moyenne','Superficie','Population','geo_shape','ID Geofla','Code Commune','Code Canton','Code Arrondissement','Code Département','Code Région'], axis=1)
     # appelle du dataset feu
-    feux = pd.read_csv('s3://fireprojectlead/dataset/historique_incendies_avec_coordonnees.csv', sep=';', encoding='utf-8')
+    feux = pd.read_csv('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/historique_incendies_avec_coordonnees.csv', sep=';', encoding='utf-8')
     # merge du dataset feu et insee
     df_feux = pd.merge(feux, df_insee, on=['Code INSEE'], how='left')
     # modification des colonnes date
@@ -292,13 +292,13 @@ def fusion_data(ti, **kwargs):
     # on créé une colonne décompte jusqu'au prochain feu
     df['décompte'] = df.groupby('ville').apply(days_until_next_fire).reset_index(level=0, drop=True)
     # on merge avec le fichiers coordonnées lat/long corse csv 
-    gps=pd.read_csv('s3://fireprojectlead/dataset/coordonnees_corses.csv')
+    gps=pd.read_csv('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/coordonnees_corses.csv')
     df_merge = df.merge(gps,on="ville", how="left")
 
     # Création de la colonne évènement pour indiquer si un feu a eu lieu
     df_merge['évènement'] = df_merge['Feux'] == 1
     # on encore des probleme avec la lat et long donc on merge avec un autre fichier
-    news_gps = pd.read_csv('s3://fireprojectlead/dataset/corse_gps.csv', sep=';', encoding='utf-8')
+    news_gps = pd.read_csv('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/corse_gps.csv', sep=';', encoding='utf-8')
     # on renomme la colonne qui va servir au merge
     news_gps = news_gps.rename(columns={'properties.name':'ville'})
     # on supprime les colonnes inutiles
@@ -388,9 +388,8 @@ def fusion_data(ti, **kwargs):
     df_merge["ETPGRILLE_7j"] = df_merge.groupby("ville")["ETPGRILLE"].transform(lambda x: x.rolling(7, min_periods=1).mean())
 
 
-
     # Chargement du fichier CSV
-    df_merge = pd.read_csv("s3://fireprojectlead/dataset/dataset_modele_decompte2.csv", sep=';', low_memory=False)
+    # df_merge = pd.read_csv("https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/dataset_modele_decompte2.csv", sep=';', low_memory=False)
 
     # Colonnes météo à compléter
     colonnes_meteo = [
