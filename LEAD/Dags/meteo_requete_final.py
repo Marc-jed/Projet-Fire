@@ -115,11 +115,12 @@ def get_meteo(ti, **kwargs):
             # Enregistrement du fichier
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(corse2.text)
+            time.sleep(60 / 25)  # 60 seconds divided by 25 requests
             all_paths.append(path)
     ti.xcom_push(key='meteo_paths', value=all_paths)
             
 
-            time.sleep(60 / 25)  # 60 seconds divided by 25 requests
+            
     # output_file = dep + '.csv'
     # all_data.to_csv(output_file, index=False)
 
