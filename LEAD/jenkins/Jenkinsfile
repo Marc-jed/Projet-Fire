@@ -1,37 +1,83 @@
 
+// pipeline {
+//   agent any
+
+//   stages {
+//     stage('Checkout') {
+//       steps {
+//         checkout scm
+//       }
+//     }
+
+//     stage('Install dependencies') {
+//       steps {
+//         sh '''
+//           python3 -m venv venv
+//           . venv/bin/activate
+//           pip install --upgrade pip
+//           pip install pytest pandas
+//         '''
+//       }
+//     }
+
+//     stage('Run tests') {
+//       steps {
+//         sh '''
+//           . venv/bin/activate
+//           pytest -q --junitxml=tests/TEST-results.xml
+//         '''
+//       }
+//       post {
+//         always {
+//           junit 'tests/TEST-results.xml'
+//         }
+//       }
+//     }
+//   }
+// }
+
+    agent any
+
 pipeline {
-  agent any
+    agent any
 
-  stages {
-    stage('Checkout') {
-      steps {
-        checkout scm
-      }
+    environment {
+        TEST_IMAGE = 'meteo_test'
+        ETL_IMAGE = 'meteo_etl'
     }
 
-    stage('Install dependencies') {
-      steps {
-        sh '''
-          python3 -m venv venv
-          . venv/bin/activate
-          pip install --upgrade pip
-          pip install pytest pandas
-        '''
-      }
-    }
-
-    stage('Run tests') {
-      steps {
-        sh '''
-          . venv/bin/activate
-          pytest -q --junitxml=tests/TEST-results.xml
-        '''
-      }
-      post {
-        always {
-          junit 'tests/TEST-results.xml'
+    stages {
+        stage('Prepare Context') {
+            steps {
+                sh '''
+                    mkdir temp_build
+                    cp -r tests temp_build/
+                    cp -r jenkins temp_build/
+                '''
+            }
         }
-      }
+
+        stage('Build Test Container') {
+            steps {
+                sh 'docker build -t ${TEST_IMAGE} -f temp_build/tests/Dockerfile temp_build/tests/'
+            }
+        }
+
+        stage('Run Tests in Container') {
+            steps {
+                sh 'docker run --rm ${TEST_IMAGE}'
+            }
+        }
     }
-  }
+}
+
+    post {
+        success {
+            echo '✅ ETL Pipeline completed successfully!'
+            archiveArtifacts artifacts: 'data/output_data.csv', fingerprint: true
+        }
+        failure {
+            echo '❌ ETL Pipeline failed.'
+        }
+    }
 }
