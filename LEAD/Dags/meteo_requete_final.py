@@ -230,17 +230,17 @@ def features_data(ti, **kwargs):
         # Effectuer la convolution avec le mode 'valid'
         return np.convolve(padded_x, np.ones(w), 'valid') / w
     # ajout de colonne sur les précispitation moyenne par an et mois
-    df['moyenne precipitations année'] = moving_average(df['RR'], 365).round(2)
-    df['moyenne precipitations mois'] = moving_average(df['RR'], 31).round(2)
+    df['moyenne precipitations année'] = moving_average(df['RR'], 365).astype('float64').round(2)
+    df['moyenne precipitations mois'] = moving_average(df['RR'], 31).astype('float64').round(2)
     # moyenne ecapotranspiration par mois et année
-    df['moyenne evapotranspiration année'] = moving_average(df['ETPMON'], 365).round(2)
-    df['moyenne evapotranspiration mois'] = moving_average(df['ETPMON'], 31).round(2)
+    df['moyenne evapotranspiration année'] = moving_average(df['ETPMON'], 365).astype('float64').round(2)
+    df['moyenne evapotranspiration mois'] = moving_average(df['ETPMON'], 31).astype('float64').round(2)
     # moyenne vitesse de vent par mois et année
-    df['moyenne vitesse vent année'] = moving_average(df['FFM'], 365).round(2)
-    df['moyenne vitesse vent mois'] = moving_average(df['FFM'], 31).round(2)
+    df['moyenne vitesse vent année'] = moving_average(df['FFM'], 365).astype('float64').round(2)
+    df['moyenne vitesse vent mois'] = moving_average(df['FFM'], 31).astype('float64').round(2)
     # moyenne température par mois et année
-    df['moyenne temperature année'] = moving_average(df['TN'], 365).round(2)
-    df['moyenne temperature mois'] = moving_average(df['TN'], 31).round(2)
+    df['moyenne temperature année'] = moving_average(df['TN'], 365).astype('float64').round(2)
+    df['moyenne temperature mois'] = moving_average(df['TN'], 31).astype('float64').round(2)
    
     ti.xcom_push(key="cleaner_data_csv_path", value=df)
 
