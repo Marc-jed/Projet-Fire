@@ -1,0 +1,37 @@
+
+pipeline {
+  agent any
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
+    stage('Install dependencies') {
+      steps {
+        sh '''
+          python3 -m venv venv
+          . venv/bin/activate
+          pip install --upgrade pip
+          pip install pytest pandas
+        '''
+      }
+    }
+
+    stage('Run tests') {
+      steps {
+        sh '''
+          . venv/bin/activate
+          pytest -q --junitxml=tests/TEST-results.xml
+        '''
+      }
+      post {
+        always {
+          junit 'tests/TEST-results.xml'
+        }
+      }
+    }
+  }
+}
