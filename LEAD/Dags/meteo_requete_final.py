@@ -14,6 +14,7 @@ from airflow.models import Variable
 from datetime import date, timedelta
 import datetime
 import glob
+import numpy as np
 
 default_args = {
     "owner": "airflow",
