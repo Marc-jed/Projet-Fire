@@ -211,7 +211,7 @@ def cleaner_data(ti,**kwargs):
     df['Code INSEE'] = df['POSTE'].astype(str).str[:A].astype(str)
 
     # appelle du fichier code insee
-    df2 = pd.read_json('s3://fireprojectlead/dataset/corse_insee.json', orient='records')
+    df2 = pd.read_json('https://fireprojectlead.s3.us-east-1.amazonaws.com/dataset/corse_insee.json', orient='records')
     df2.rename(columns={'code_insee': 'Code INSEE'}, inplace=True)
     df2.rename(columns={'code_postale': 'Code Postal'}, inplace=True)
     df2.rename(columns={'nom_de_la_commune': 'ville'}, inplace=True)
