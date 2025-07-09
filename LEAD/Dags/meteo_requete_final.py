@@ -208,7 +208,7 @@ def cleaner_data(ti,**kwargs):
     df['Code INSEE'] = df['POSTE'].astype(str).str[:A].astype(str)
 
     # appelle du fichier code insee
-    df2 = pd.read_json('scrapping\corse_insee.json', orient='records')
+    df2 = pd.read_json('s3://fireprojectlead/dataset/corse_insee.json', orient='records')
     df2.rename(columns={'code_insee': 'Code INSEE'}, inplace=True)
     df2.rename(columns={'code_postale': 'Code Postal'}, inplace=True)
     df2.rename(columns={'nom_de_la_commune': 'ville'}, inplace=True)
@@ -217,7 +217,7 @@ def cleaner_data(ti,**kwargs):
     df_corse = pd.merge(df, df2, on='Code INSEE', how='left')
     ti.xcom_push(key="cleaner_data_csv_path", value=df_corse)
 
-def features_data(ti, **kwargs)
+def features_data(ti, **kwargs):
     df = ti.xcom_pull(key="cleaner_data_csv_path", value=df_corse)
     # fonction de moyenne lissante avec np.convolve
     def moving_average(x, w):
@@ -240,7 +240,7 @@ def features_data(ti, **kwargs)
    
     ti.xcom_push(key="cleaner_data_csv_path", value=df)
 
-def fusion_data(ti, **kwargs)
+def fusion_data(ti, **kwargs):
     df=ti.xcom_pull(key="cleaner_data_csv_path", value=df)
     
     # appelle du dataset insee
