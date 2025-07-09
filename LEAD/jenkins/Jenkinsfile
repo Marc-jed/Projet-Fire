@@ -39,13 +39,18 @@
 
 pipeline {
     agent any
-
     environment {
         TEST_IMAGE = 'meteo_test'
         ETL_IMAGE = 'meteo_etl'
     }
-
     stages {
+        stage('Debug: Initial State') {
+            steps {
+                sh 'pwd'
+                sh 'ls -la'
+            }
+        }
+
         stage('Prepare Context') {
             steps {
                 sh '''
@@ -53,12 +58,25 @@ pipeline {
                     cp -r tests temp_build/
                     cp -r jenkins temp_build/
                 '''
+                sh 'ls -la temp_build' // Debug step to check the contents of temp_build
+            }
+        }
+
+        stage('Debug: After Prepare Context') {
+            steps {
+                sh 'ls -la temp_build/tests'
             }
         }
 
         stage('Build Test Container') {
             steps {
                 sh 'docker build -t ${TEST_IMAGE} -f temp_build/tests/Dockerfile temp_build/tests/'
+            }
+        }
+
+        stage('Debug: Before Running Tests') {
+            steps {
+                sh 'docker images | grep ${TEST_IMAGE}' // Check if the Docker image was built
             }
         }
 
@@ -79,4 +97,3 @@ pipeline {
         }
     }
 }
-
