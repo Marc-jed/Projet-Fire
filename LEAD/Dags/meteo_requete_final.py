@@ -20,7 +20,7 @@ default_args = {
     "start_date": datetime.datetime(2024, 1, 1),
     "retries": 1
 }
-all_paths = []
+
 # appelle du département par code postal
 def get_meteo(ti, **kwargs):
     
@@ -42,7 +42,7 @@ def get_meteo(ti, **kwargs):
     corse = requests.get(url, headers=headers, params=params)
 
     print('erreur corse', corse.status_code)
-    corse.json()
+    # corse.json()
 
     # on applique un mask pour ne prendre que les stations ouvertes
     corse_df = pd.DataFrame(corse.json())
@@ -54,6 +54,7 @@ def get_meteo(ti, **kwargs):
     # all_data = pd.DataFrame()
 
     id = corse_df['id']
+    all_paths = []
 
     for i in id:
         # pour récupérer les données météo de la veille, on peut utiliser la date du jour moins un jour
@@ -114,8 +115,9 @@ def get_meteo(ti, **kwargs):
             # Enregistrement du fichier
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(corse2.text)
-            ti.xcom_push(key='meteo_paths', value=all_paths)
             all_paths.append(path)
+    ti.xcom_push(key='meteo_paths', value=all_paths)
+            
 
             time.sleep(60 / 25)  # 60 seconds divided by 25 requests
     # output_file = dep + '.csv'
@@ -218,7 +220,7 @@ def cleaner_data(ti,**kwargs):
     ti.xcom_push(key="cleaner_data_csv_path", value=df_corse)
 
 def features_data(ti, **kwargs):
-    df = ti.xcom_pull(key="cleaner_data_csv_path", value=df_corse)
+    df = ti.xcom_pull(task_ids="cleaner_data_csv_path", value=df_corse)
     # fonction de moyenne lissante avec np.convolve
     def moving_average(x, w):
         # Remplir le tableau d'entrée avec 'w//2' éléments de chaque côté en utilisant les valeurs de bord
