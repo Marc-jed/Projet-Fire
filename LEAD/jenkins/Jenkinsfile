@@ -71,7 +71,7 @@ pipeline {
 
         stage('Debug: Before Running Tests') {
             steps {
-                sh 'docker images | grep ${TEST_IMAGE}'  # Vérifie que l'image Docker a été construite
+                sh 'docker images | grep ${TEST_IMAGE}  # Vérifie que l\'image Docker a été construite'
             }
         }
 
@@ -92,3 +92,4 @@ pipeline {
         }
     }
 }
+
