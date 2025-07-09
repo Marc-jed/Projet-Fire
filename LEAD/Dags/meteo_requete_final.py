@@ -390,7 +390,7 @@ def fusion_data(ti, **kwargs):
 
 
     # Chargement du fichier CSV
-    df_merge = pd.read_csv("dataset_modele_decompte2.csv", sep=';', low_memory=False)
+    df_merge = pd.read_csv("s3://fireprojectlead/dataset/dataset_modele_decompte2.csv", sep=';', low_memory=False)
 
     # Colonnes météo à compléter
     colonnes_meteo = [
