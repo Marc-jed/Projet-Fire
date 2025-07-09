@@ -64,7 +64,7 @@ def get_meteo(ti, **kwargs):
         # date_fin = f'{d}T23:59:59Z'
 
         for années in range(2025, 2026):
-            date_debut = f'{années}-01-01T00:00:00Z'
+            date_debut = f'{années}-06-03T00:00:00Z'
             date_fin = f'{années}-06-05T23:59:59Z'
 
             url = "https://public-api.meteofrance.fr/public/DPClim/v1/commande-station/quotidienne"
@@ -221,7 +221,7 @@ def cleaner_data(ti,**kwargs):
     ti.xcom_push(key="cleaner_data_csv_path", value=df_corse)
 
 def features_data(ti, **kwargs):
-    df = ti.xcom_pull(task_ids="cleaner_data_csv_path", value=df_corse)
+    df = ti.xcom_pull(task_ids="cleaner_data", key="cleaner_data_csv_path")
     # fonction de moyenne lissante avec np.convolve
     def moving_average(x, w):
         # Remplir le tableau d'entrée avec 'w//2' éléments de chaque côté en utilisant les valeurs de bord
@@ -244,7 +244,7 @@ def features_data(ti, **kwargs):
     ti.xcom_push(key="cleaner_data_csv_path", value=df)
 
 def fusion_data(ti, **kwargs):
-    df=ti.xcom_pull(key="cleaner_data_csv_path", value=df)
+    df=ti.xcom_pull(task_ids="features_data", key="cleaner_data_csv_path")
     
     # appelle du dataset insee
     df_insee = pd.read_csv('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/correspondance-code-insee-code-postal.csv', sep=';',encoding='utf-8')
