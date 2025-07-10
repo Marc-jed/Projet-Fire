@@ -59,14 +59,14 @@ def get_meteo(ti, **kwargs):
 
     for i in id:
         # pour récupérer les données météo de la veille, on peut utiliser la date du jour moins un jour
-        # d=datetime.date.today()
-        # d=d-timedelta(days=1)
-        # date_debut = f'{d}T00:00:00Z'
-        # date_fin = f'{d}T23:59:59Z'
+        d=datetime.date.today()
+        d=d-timedelta(days=1)
+        date_debut = f'{d}T00:00:00Z'
+        date_fin = f'{d}T23:59:59Z'
 
-        for années in range(2025, 2026):
-            date_debut = f'{années}-06-03T00:00:00Z'
-            date_fin = f'{années}-06-05T23:59:59Z'
+        for années in range(2006, 2026):
+            date_debut = f'{années}-01-01T00:00:00Z'
+            date_fin = f'{d}T23:59:59Z'
 
             url = "https://public-api.meteofrance.fr/public/DPClim/v1/commande-station/quotidienne"
             params = {
@@ -239,6 +239,12 @@ def fusion_data(ti, **kwargs):
     feux_corse = feux_corse.rename(columns={'Nom de la commune': 'ville'})
     # fusion du météo et feu
     df_fusion= pd.merge(df, feux_corse, on=['Date', 'ville'], how='outer')
+    # ajout des feux reçents sur la corse donnée media
+    df_fusion.loc[(df['ville'] == 'Bonifacio') & (df['Date'] == '2025-06-02'), 'Feux'] = 1
+    df_fusion.loc[(df['ville'] == 'Solaro') & (df['Date'] == '2025-07-08'), 'Feux'] = 1
+    df_fusion.loc[(df['ville'] == 'Quenza') & (df['Date'] == '2025-07-01'), 'Feux'] = 1
+    df_fusion.loc[(df['ville'] == 'Linguizzetta') & (df['Date'] == '2025-07-01'), 'Feux'] = 1
+
     # traitement des doublons
     df_clean = df_fusion.groupby(['ville', 'Date'], as_index=False).agg(lambda x: x.dropna().iloc[0] if not x.dropna().empty else None)
     # on met 0 dans la colonne feux si pas de données 
