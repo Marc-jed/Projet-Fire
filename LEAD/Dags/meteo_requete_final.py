@@ -15,6 +15,7 @@ from datetime import date, timedelta
 import datetime
 import glob
 import numpy as np
+from geopy.distance import geodesic
 
 default_args = {
     "owner": "airflow",
@@ -26,7 +27,6 @@ default_args = {
 def get_meteo(ti, **kwargs):
     
     api = Variable.get("meteoapi")
-    # 'eyJ4NXQiOiJZV0kxTTJZNE1qWTNOemsyTkRZeU5XTTRPV014TXpjek1UVmhNbU14T1RSa09ETXlOVEE0Tnc9PSIsImtpZCI6ImdhdGV3YXlfY2VydGlmaWNhdGVfYWxpYXMiLCJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJnZGxlZHMzMUBjYXJib24uc3VwZXIiLCJhcHBsaWNhdGlvbiI6eyJvd25lciI6ImdkbGVkczMxIiwidGllclF1b3RhVHlwZSI6bnVsbCwidGllciI6IlVubGltaXRlZCIsIm5hbWUiOiJEZWZhdWx0QXBwbGljYXRpb24iLCJpZCI6MjgxOTcsInV1aWQiOiJjMDA0ZmQ1NC0xMTY3LTQ3MTEtOWQ3MC04M2ExZWI0YmI0MGYifSwiaXNzIjoiaHR0cHM6XC9cL3BvcnRhaWwtYXBpLm1ldGVvZnJhbmNlLmZyOjQ0M1wvb2F1dGgyXC90b2tlbiIsInRpZXJJbmZvIjp7IjUwUGVyTWluIjp7InRpZXJRdW90YVR5cGUiOiJyZXF1ZXN0Q291bnQiLCJncmFwaFFMTWF4Q29tcGxleGl0eSI6MCwiZ3JhcGhRTE1heERlcHRoIjowLCJzdG9wT25RdW90YVJlYWNoIjp0cnVlLCJzcGlrZUFycmVzdExpbWl0IjowLCJzcGlrZUFycmVzdFVuaXQiOiJzZWMifX0sImtleXR5cGUiOiJQUk9EVUNUSU9OIiwic3Vic2NyaWJlZEFQSXMiOlt7InN1YnNjcmliZXJUZW5hbnREb21haW4iOiJjYXJib24uc3VwZXIiLCJuYW1lIjoiRG9ubmVlc1B1YmxpcXVlc0NsaW1hdG9sb2dpZSIsImNvbnRleHQiOiJcL3B1YmxpY1wvRFBDbGltXC92MSIsInB1Ymxpc2hlciI6ImFkbWluX21mIiwidmVyc2lvbiI6InYxIiwic3Vic2NyaXB0aW9uVGllciI6IjUwUGVyTWluIn1dLCJleHAiOjE3NTIzOTM0MzIsInRva2VuX3R5cGUiOiJhcGlLZXkiLCJpYXQiOjE3NTE3ODg2MzIsImp0aSI6IjJhODY3ODM1LTM4ZGYtNDYzZS04NjllLWMwM2YzZTNjMTk4NyJ9.t6Vl9r3L9smJ1XfPqRGGa_kxvLL-q-WTszgAgXxAWdP5M6TJaA_pPUeDT-CVtDhipxm-3HfHDV0t2DpRyT35F_fVLfq8sZsS1UzBIYR1fA9lgKjQAGHedsOwflva-nqNJTGLtEwHGbxjQjH6fw5uBxyvAydAbkg8NzPiXkREQO0ur6hiA7tWP1QhfSLLb6NwhF6ec4zdQqkfjH9jtus9tq78baEIct7z84RqAZoq7zkiVaGo22l1A0KSLb6Krf0pBE-AfMm_A6OLz1Z8KG0CTtiVpHToKukzIun1uCpynVKC1T8gN1rZZfhL_keOVbuPOaUn-1hd6TBwZCAPLth6pA=='/n
     dep = '20'
     url = 'https://public-api.meteofrance.fr/public/DPClim/v1/liste-stations/quotidienne'
 
@@ -102,12 +102,6 @@ def get_meteo(ti, **kwargs):
                 "apikey": api
             }
             corse2 = requests.get(url, headers=headers, params=params)
-            
-            # print('erreur corse2', corse2.status_code)
-            #print(corse2.text)
-            
-            # output_file = name +'.csv'
-            # pd.DataFrame(corse2).to_csv(output_file, index=False)
 
             nom_station = corse_df.loc[corse_df['id'] == i, 'nom'].values[0].replace(' ', '_')
             path = f"tmp/{dep}_{nom_station}_{années}.csv"
@@ -116,34 +110,13 @@ def get_meteo(ti, **kwargs):
             # Enregistrement du fichier
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(corse2.text)
-            time.sleep(60 / 25)  # 60 seconds divided by 25 requests
+            time.sleep(60 / 20)  # 60 seconds divided by 25 requests
             all_paths.append(path)
     ti.xcom_push(key='meteo_paths', value=all_paths)
             
 
-            
-    # output_file = dep + '.csv'
-    # all_data.to_csv(output_file, index=False)
-
-# def upload_csv_to_s3(ti, **kwargs):
-#     paths = ti.xcom_pull(task_ids='get_meteo', key='meteo_paths')
-#     bucket = Variable.get("S3BucketName")
-#     folder = Variable.get("S3FolderName")
-#     s3 = S3Hook(aws_conn_id="aws_default")
-#     for path in paths:
-#         filename = os.path.basename(path)
-#         s3.load_file(filename=path, key=f"{folder}/{filename}", bucket_name=bucket, replace=True)
-
-
 def compile_meteo_data(ti, **kwargs):
-    # # Chemin vers les fichiers CSV
-    # s3 = S3Hook(aws_conn_id="aws_default")
-    # bucket_name = Variable.get("S3BucketName")
-    # folder_name = Variable.get("S3FolderName")
-    # # Lire les fichiers CSV depuis S3
-    # all_files = s3.list_keys(bucket_name=bucket_name, prefix=folder_name)
-    # all_files = [f"s3://{bucket_name}/{file}" for file in all_files if file.endswith('.csv')]
-     
+
     # all_files = glob.glob(path + "/*.csv")
     all_files = ti.xcom_pull(task_ids='get_meteo', key='meteo_paths')
 
@@ -230,17 +203,18 @@ def features_data(ti, **kwargs):
         # Effectuer la convolution avec le mode 'valid'
         return np.convolve(padded_x, np.ones(w), 'valid') / w
     # ajout de colonne sur les précispitation moyenne par an et mois
-    df['moyenne precipitations année'] = moving_average(df['RR'], 365).astype('float64').round(2)
-    df['moyenne precipitations mois'] = moving_average(df['RR'], 31).astype('float64').round(2)
+    df['moyenne precipitations année'] = (pd.Series(moving_average(df['RR'], 365)).replace({pd.NA: np.nan}).astype(float).round(2))
+    # df['moyenne precipitations année'] = moving_average(df['RR'], 365).round(2)
+    df['moyenne precipitations mois'] = (pd.Series(moving_average(df['RR'], 31)).replace({pd.NA: np.nan}).astype(float).round(2))
     # moyenne ecapotranspiration par mois et année
-    df['moyenne evapotranspiration année'] = moving_average(df['ETPMON'], 365).astype('float64').round(2)
-    df['moyenne evapotranspiration mois'] = moving_average(df['ETPMON'], 31).astype('float64').round(2)
+    df['moyenne evapotranspiration année'] = (pd.Series(moving_average(df['ETPMON'], 365)).replace({pd.NA: np.nan}).astype(float).round(2))
+    df['moyenne evapotranspiration mois'] = (pd.Series(moving_average(df['ETPMON'], 31)).replace({pd.NA: np.nan}).astype(float).round(2))
     # moyenne vitesse de vent par mois et année
-    df['moyenne vitesse vent année'] = moving_average(df['FFM'], 365).astype('float64').round(2)
-    df['moyenne vitesse vent mois'] = moving_average(df['FFM'], 31).astype('float64').round(2)
+    df['moyenne vitesse vent année'] = (pd.Series(moving_average(df['FFM'], 365)).replace({pd.NA: np.nan}).astype(float).round(2))
+    df['moyenne vitesse vent mois'] = (pd.Series(moving_average(df['FFM'], 31)).replace({pd.NA: np.nan}).astype(float).round(2))
     # moyenne température par mois et année
-    df['moyenne temperature année'] = moving_average(df['TN'], 365).astype('float64').round(2)
-    df['moyenne temperature mois'] = moving_average(df['TN'], 31).astype('float64').round(2)
+    df['moyenne temperature année'] = (pd.Series(moving_average(df['TN'], 365)).replace({pd.NA: np.nan}).astype(float).round(2))
+    df['moyenne temperature mois'] = (pd.Series(moving_average(df['TN'], 31)).replace({pd.NA: np.nan}).astype(float).round(2))
    
     ti.xcom_push(key="cleaner_data_csv_path", value=df)
 
@@ -250,14 +224,14 @@ def fusion_data(ti, **kwargs):
     # appelle du dataset insee
     df_insee = pd.read_csv('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/correspondance-code-insee-code-postal.csv', sep=';',encoding='utf-8')
     # suppression des colonnes inutiles sur le dataset insee
-    df_insee = df.drop(columns=['Département','Région','Statut','Altitude Moyenne','Superficie','Population','geo_shape','ID Geofla','Code Commune','Code Canton','Code Arrondissement','Code Département','Code Région'], axis=1)
+    df_insee = df_insee.drop(columns=['Département','Région','Statut','Altitude Moyenne','Superficie','Population','geo_shape','ID Geofla','Code Commune','Code Canton','Code Arrondissement','Code Département','Code Région'], axis=1)
     # appelle du dataset feu
     feux = pd.read_csv('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/historique_incendies_avec_coordonnees.csv', sep=';', encoding='utf-8')
     # merge du dataset feu et insee
     df_feux = pd.merge(feux, df_insee, on=['Code INSEE'], how='left')
     # modification des colonnes date
     df.rename({'DATE': 'Date'}, axis=1, inplace=True)
-    df['Date'] = pd.to_datetime(df_meteo['Date']).dt.normalize()
+    df['Date'] = pd.to_datetime(df['Date']).dt.normalize()
     df_feux['Date'] = pd.to_datetime(df_feux['Date']).dt.normalize()
     # dans le fichier df_feux on filtre les departement corse on supprimme des colonnes et on renomme une colonne
     feux_corse = df_feux[df_feux['Département'].isin(['2A', '2B', 2])]
@@ -266,12 +240,11 @@ def fusion_data(ti, **kwargs):
     # fusion du météo et feu
     df_fusion= pd.merge(df, feux_corse, on=['Date', 'ville'], how='outer')
     # traitement des doublons
-    df_clean = df.groupby(['ville', 'Date'], as_index=False).agg(lambda x: x.dropna().iloc[0] if not x.dropna().empty else None)
+    df_clean = df_fusion.groupby(['ville', 'Date'], as_index=False).agg(lambda x: x.dropna().iloc[0] if not x.dropna().empty else None)
     # on met 0 dans la colonne feux si pas de données 
     df_clean['Feux'] = df_clean['Feux'].fillna(0).astype(int)
     df=df_clean
 
-    # Mise en place de la colonne décompte avant le feu suivant
 
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.sort_values(['ville', 'Date'])
@@ -299,7 +272,7 @@ def fusion_data(ti, **kwargs):
     # Création de la colonne évènement pour indiquer si un feu a eu lieu
     df_merge['évènement'] = df_merge['Feux'] == 1
     # on encore des probleme avec la lat et long donc on merge avec un autre fichier
-    news_gps = pd.read_csv('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/corse_gps.csv', sep=';', encoding='utf-8')
+    news_gps = pd.read_csv('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/corse_new_gps.csv', sep=',', encoding='utf-8')
     # on renomme la colonne qui va servir au merge
     news_gps = news_gps.rename(columns={'properties.name':'ville'})
     # on supprime les colonnes inutiles
