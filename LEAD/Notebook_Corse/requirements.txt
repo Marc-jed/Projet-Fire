@@ -1,0 +1,17 @@
+pandas
+scikit-learn
+xgboost
+lifelines
+plotly
+mlflow
+geopy
+boto3
+ccxt==1.85.*
+apache-airflow-providers-postgres
+apache-airflow-providers-amazon
+psycopg[binary]
+tqdm
+requests
+sqlalchemy
+s3fs
+numpy
