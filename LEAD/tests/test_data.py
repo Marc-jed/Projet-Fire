@@ -1,14 +1,25 @@
 import pandas as pd
 import pytest
 
+def test_load_data(data_insee):
+    assert not data_insee.empty
+    assert data_insee.shape[1] == 3
+    assert data_insee.shape[0] == 417
 
+def test_cleaner_data(data_insee):
+    assert data_insee.isnull().sum().sum() == 0
 
-def test_load_data():
+def test_load_data_feu(data_feu):
+    assert not data_feu.empty
+    assert data_feu.shape[1] == 19
 
-    df = pd.read_json('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/corse_insee.json', orient='records')
-    assert not df.empty 
-    assert df.shape[1] == 4
-    assert df.shape[0] == 417
+def test_cleaner_data_feu(data_feu):
+    assert data_feu.isnull().sum()[data_feu.columns[0]]==0
+    assert data_feu.isnull().sum()[data_feu.columns[1]]==0
+    assert data_feu.isnull().sum()[data_feu.columns[2]]==0
+    assert data_feu.isnull().sum()[data_feu.columns[5]]==0
+    assert data_feu.isnull().sum()[data_feu.columns[6]]==0
+    assert data_feu.isnull().sum()[data_feu.columns[18]]==0
 
 
 
