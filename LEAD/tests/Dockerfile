@@ -47,8 +47,9 @@ RUN pip install -r /tmp/requirements.txt
 RUN mkdir tests
 # Copier les fichiers du projet dans le container
 # COPY test_etl_meteo.py /app/tests
-# COPY test_api.py /app/tests
-COPY test_data.py /app/tests
+# COPY conftest.py /app/tests
+# COPY test_data.py /app/tests
+COPY . /app/tests
 
 # Définir le point d'entrée pour exécuter les tests avec pytest
 CMD ["python", "-m", "pytest", "tests/"]
