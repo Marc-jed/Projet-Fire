@@ -437,13 +437,13 @@ def fusion_data(ti, **kwargs):
 
 
     # Fusion des deux ensembles pour un dataframe complet
-    df_final = pd.concat([
-        df_completes,
-        df_manquantes
-    ]).sort_index()
+    df_final = pd.concat([df_completes, df_manquantes]).sort_index()
 
-    # Export possible si besoin
-    path=df_final.to_csv("dataset_complet_meteo.csv", sep=';', index=False)
+    # Définir le chemin du fichier à sauvegarder
+    path = "dataset_complet_meteo.csv"
+    df_final.to_csv(path, sep=';', index=False)
+
+    # Pousser le chemin dans XCom pour le récupérer plus tard
     ti.xcom_push(key="dataset_complet_csv_path", value=path)
 
 def upload_fusion_csv_to_s3(ti, **kwargs):
