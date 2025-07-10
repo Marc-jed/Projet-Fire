@@ -15,6 +15,11 @@ def test_load_data_feu(data_feu):
 
 def test_cleaner_data_feu(data_feu):
     assert data_feu.isnull().sum()[data_feu.columns[0]]==0
+    assert data_feu.isnull().sum()[data_feu.columns[1]]==0
+    assert data_feu.isnull().sum()[data_feu.columns[2]]==0
+    assert data_feu.isnull().sum()[data_feu.columns[5]]==0
+    assert data_feu.isnull().sum()[data_feu.columns[6]]==0
+    assert data_feu.isnull().sum()[data_feu.columns[18]]==0
 
 
 
