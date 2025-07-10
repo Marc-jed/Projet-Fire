@@ -93,6 +93,8 @@ COPY requirements.txt /tmp/
 RUN pip install --upgrade pip
 RUN pip install -r /tmp/requirements.txt
 
+
+CMD ["mkdir", "tests"]
 # Copier les fichiers du projet dans le container
 COPY test_etl_meteo.py /app/tests
 
