@@ -1,5 +1,7 @@
 FROM python:3.10-slim
 
+WORKDIR /app
+
 # Installer les dépendances systèmes nécessaires
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -41,7 +43,7 @@ RUN pip install --upgrade pip
 RUN pip install -r /tmp/requirements.txt
 
 # Copier les fichiers du projet dans le container
-COPY . /app
+COPY tests/test_etl_meteo.py /app
 
 # Définir le point d'entrée pour exécuter les tests avec pytest
-CMD ["python", "-m", "pytest", "tests/"]
+CMD ["python", "-m", "pytest", "test_etl_meteo.py"]
