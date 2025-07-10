@@ -1,4 +1,7 @@
+
 FROM python:3.10-slim
+
+WORKDIR /app
 
 # Installer les dépendances systèmes nécessaires
 RUN apt-get update && apt-get install -y \
@@ -40,8 +43,12 @@ COPY requirements.txt /tmp/
 RUN pip install --upgrade pip
 RUN pip install -r /tmp/requirements.txt
 
+
+RUN mkdir tests
 # Copier les fichiers du projet dans le container
-COPY . /app
+# COPY test_etl_meteo.py /app/tests
+# COPY test_api.py /app/tests
+COPY test_data.py /app/tests
 
 # Définir le point d'entrée pour exécuter les tests avec pytest
-CMD ["python", "-m", "pytest", "LEAD/tests/"]
+CMD ["python", "-m", "pytest", "tests/"]
