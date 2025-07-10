@@ -47,7 +47,6 @@ pipeline {
     post {
         success {
             echo '✅ ETL Pipeline completed successfully!'
-            '''archiveArtifacts artifacts: 'data/output_data.csv', fingerprint: true '''
         }
         failure {
             echo '❌ ETL Pipeline failed.'
