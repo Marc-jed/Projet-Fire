@@ -3,7 +3,10 @@ import pytest
 
 
 
-def test_load_data():
+def test_load_data(data_insee):
 
     assert data_insee.empty
-   
+
+
+
+  
