@@ -43,8 +43,9 @@ RUN pip install --upgrade pip
 RUN pip install -r /tmp/requirements.txt
 
 # Copier les fichiers du projet dans le container
-COPY test_etl_meteo.py /tests
-COPY test_api.py /tests
+COPY test_etl_meteo.py /app
+COPY test_api.py /app
 
 # Définir le point d'entrée pour exécuter les tests avec pytest
 CMD ["python", "-m", "pytest", "test_etl_meteo.py"]
+CMD ["python", "-m", "pytest", "test_api.py"]
