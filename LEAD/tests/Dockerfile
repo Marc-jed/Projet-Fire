@@ -48,7 +48,7 @@ RUN mkdir tests
 # Copier les fichiers du projet dans le container
 # COPY test_etl_meteo.py /app/tests
 # COPY test_api.py /app/tests
-COPY test_compile_meteo_data.py /app/tests
+COPY test_data.py /app/tests
 
 # Définir le point d'entrée pour exécuter les tests avec pytest
 CMD ["python", "-m", "pytest", "tests/"]
