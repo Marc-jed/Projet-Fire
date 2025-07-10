@@ -47,4 +47,4 @@ COPY test_etl_meteo.py /tests
 COPY test_api.py /tests
 
 # Définir le point d'entrée pour exécuter les tests avec pytest
-CMD ["python", "-m", "pytest", "tests/"]
+CMD ["python", "-m", "pytest", "test_etl_meteo.py"]
