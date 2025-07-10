@@ -12,3 +12,7 @@ def test_load_data():
 
 
 
+def test_cleaner_data():
+
+    df = pd.read_json('https://fireprojectbislead.s3.us-east-1.amazonaws.com/dataset/corse_insee.json', orient='records')
+    assert df.isnull().sum().sum() == 0
