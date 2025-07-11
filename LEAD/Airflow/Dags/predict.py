@@ -4,6 +4,60 @@ import pandas as pd
 import numpy as np
 from lifelines import CoxPHFitter
 import datetime
+from sqlalchemy import create_engine
+from airflow import DAG
+from airflow.hooks.base import BaseHook
+from airflow.operators.python import PythonOperator
+from airflow.hooks.S3_hook import S3Hook
+import os
+import seaborn as sns
+import plotly.express as px
+import matplotlib.pyplot as plt
+import plotly.io as pio
+import sklearn
+import warnings
+from scipy.special import expit, logit
+import sksurv.datasets
+import joblib
+import xgboost as xgb
+from xgboost import XGBRegressor
+from xgboost import XGBClassifier
+from xgboost import DMatrix
+from xgboost import train
+from lifelines import CoxPHFitter
+from itertools import product
+from tqdm import tqdm
+from xgbse import XGBSEKaplanNeighbors
+from xgbse.converters import convert_to_structured
+from sklearn.metrics import roc_auc_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+from sklearn.exceptions import UndefinedMetricWarning
+from sklearn import set_config
+from sklearn.model_selection import GridSearchCV, KFold
+from sklearn.pipeline import make_pipeline
+from sklearn.model_selection import ParameterGrid
+from airflow.models import Variable
+from sksurv.datasets import load_breast_cancer
+from sksurv.metrics import cumulative_dynamic_auc
+from sksurv.metrics import concordance_index_censored
+from sksurv.linear_model import CoxnetSurvivalAnalysis, CoxPHSurvivalAnalysis
+from sksurv.preprocessing import OneHotEncoder
+from sksurv.util import Surv
+import mlflow
+import boto3
+
+
+from sksurv.ensemble import GradientBoostingSurvivalAnalysis
+
+
+warnings.filterwarnings("ignore", category=UndefinedMetricWarning)
+set_config(display="text")
+
 
 default_args = {
     "owner": "airflow",
@@ -11,14 +65,13 @@ default_args = {
     "retries": 1
 }
 
-def predict_survival(ti):
-    df = pd.read_csv('https://fireprojectbislead.s3.us-east-1.amazonaws.com/compile/dataset_complet_meteo.csv')
+def predict_survival(ti, **kwargs):
+    df = pd.read_csv('https://fireprojectbislead.s3.us-east-1.amazonaws.com/compile/dataset_complet_meteo.csv', sep=';', low_memory=False)
 
     # 🔹 Nettoyage & filtrage
     df['Feu prévu'] = df['Feu prévu'].astype(bool)
     df["décompte"] = df["décompte"].fillna(0)
-    mask = df['Année'] == 2025
-    df_clean = df[mask].copy()
+    df_clean = df.copy()
 
     # 🔹 Définition des features disponibles
     features = [
@@ -31,10 +84,6 @@ def predict_survival(ti):
         'Année', 'Mois', 'moyenne precipitations année', 'moyenne evapotranspiration année'
     ]
     features = [f for f in features if f in df_clean.columns]
-
-    mask = df_clean["Année"] == 2025
-    df_clean = df_clean[~mask]
-    df_clean.head()
 
 ################## code si paramètre du modele chargé sur mlflow ######################""""
     # # 🔹 Préparation des données
@@ -89,7 +138,6 @@ def predict_survival(ti):
     # on filtre pour ne pas prendre les données de 2025 dans l'entrainement 
     mask = df_clean["Année"] == 2025
     df_clean = df_clean[~mask]
-    df_clean.head()
 
     # 🔹 Préparation des données réelles
     df_clean = df_clean.rename(columns={"Feu prévu": "event", "décompte": "duration"})
@@ -187,10 +235,10 @@ def predict_survival(ti):
     output_path = "/tmp/predictions.csv"
     df_map_new.to_csv(output_path, index=False)
 
-# 🔹 Envoi du chemin via XCom
-ti.xcom_push(key="prediction_path", value=output_path)
+    # 🔹 Envoi du chemin via XCom
+    ti.xcom_push(key="prediction_path", value=output_path)
     
-def upload_to_s3(ti):
+def upload_to_s3(ti, **kwargs):
     # 🔹 Récupération du chemin du fichier prédictions
     path = ti.xcom_pull(task_ids="predict_survival", key="prediction_path")
     bucket = Variable.get("S3BucketName")
