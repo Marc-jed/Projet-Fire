@@ -15,3 +15,10 @@ requests
 sqlalchemy
 s3fs
 numpy
+seaborn
+matplotlib
+scipy
+joblib
+lifelines
+xgbse
+sksurv
