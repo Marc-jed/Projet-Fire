@@ -9,14 +9,16 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
+
 COPY requirements.txt .
-COPY app.py .
-
-
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 
+COPY dags /app/dags
+
+
+WORKDIR /app/dags
 CMD ["python", "app.py"]
 
 
