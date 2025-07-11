@@ -12,7 +12,7 @@ from airflow.operators.python import PythonOperator
 from airflow.hooks.S3_hook import S3Hook
 from airflow.models import Variable
 from datetime import date, timedelta
-import datetime
+import datetime, timedelta
 import glob
 import numpy as np
 from geopy.distance import geodesic
@@ -58,15 +58,10 @@ def get_meteo(ti, **kwargs):
     all_paths = []
 
     for i in id:
-        # pour récupérer les données météo de la veille, on peut utiliser la date du jour moins un jour
-        d=datetime.date.today()
-        d=d-timedelta(days=1)
-        date_debut = f'{d}T00:00:00Z'
-        date_fin = f'{d}T23:59:59Z'
 
         for années in range(2006, 2026):
             date_debut = f'{années}-01-01T00:00:00Z'
-            date_fin = f'{d}T23:59:59Z'
+            date_fin = f'{années}-07-10T23:59:59Z'
 
             url = "https://public-api.meteofrance.fr/public/DPClim/v1/commande-station/quotidienne"
             params = {
@@ -240,10 +235,10 @@ def fusion_data(ti, **kwargs):
     # fusion du météo et feu
     df_fusion= pd.merge(df, feux_corse, on=['Date', 'ville'], how='outer')
     # ajout des feux reçents sur la corse donnée media
-    df_fusion.loc[(df['ville'] == 'Bonifacio') & (df['Date'] == '2025-06-02'), 'Feux'] = 1
-    df_fusion.loc[(df['ville'] == 'Solaro') & (df['Date'] == '2025-07-08'), 'Feux'] = 1
-    df_fusion.loc[(df['ville'] == 'Quenza') & (df['Date'] == '2025-07-01'), 'Feux'] = 1
-    df_fusion.loc[(df['ville'] == 'Linguizzetta') & (df['Date'] == '2025-07-01'), 'Feux'] = 1
+    df_fusion.loc[df_fusion['ville'] == 'Bonifacio') & df_fusion['Date'] == '2025-06-02'), 'Feux'] = 1
+    df_fusion.loc[df_fusion['ville'] == 'Solaro') & df_fusion['Date'] == '2025-07-08'), 'Feux'] = 1
+    df_fusion.loc[df_fusion['ville'] == 'Quenza') & df_fusion['Date'] == '2025-07-01'), 'Feux'] = 1
+    df_fusion.loc[df_fusion['ville'] == 'Linguizzetta') & df_fusion['Date'] == '2025-07-01'), 'Feux'] = 1
 
     # traitement des doublons
     df_clean = df_fusion.groupby(['ville', 'Date'], as_index=False).agg(lambda x: x.dropna().iloc[0] if not x.dropna().empty else None)
@@ -465,7 +460,7 @@ with DAG(
     default_args=default_args,
     schedule_interval="@daily",
     catchup=False,
-    description="Flux meteo de la corse"
+    description="traitement donnée flux meteo et feux corse"
 ) as dag:
 
     fetch_weather = PythonOperator(
@@ -496,5 +491,11 @@ with DAG(
         task_id="upload_fusion_csv_to_s3",
         python_callable=upload_fusion_csv_to_s3
     )
+    # en option pour enchainer l'autre dags ( predict) une fois configurer correctement
+    # trigger_next_dag = TriggerDagRunOperator(
+    #     task_id="trigger_next_dag",
+    #     trigger_dag_id="predict",  
+    # )
 
-fetch_weather >> compile_meteo >> upload_compile_csv >> cleaner_data >> features_data >> fusion_data >> upload_fusion_csv_to_s3
+
+fetch_weather >> compile_meteo >> upload_compile_csv >> cleaner_data >> features_data >> fusion_data >> upload_fusion_csv_to_s3 # >> trigger_next_dag

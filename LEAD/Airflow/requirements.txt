@@ -21,4 +21,4 @@ scipy
 joblib
 lifelines
 xgbse
-sksurv
+scikit-survival
